@@ -484,10 +484,26 @@ window.login = function(name, avatar, role) {
 window.showModal = function() { document.getElementById('modal').style.display = 'flex'; }
 
 /* ── Firestore listener ── */
+let renderTimer = null;
 function startListening() {
   setSync('busy');
-  onSnapshot(query(collection(db,'tasks'), orderBy('ts','desc')),
-    snap => { tasks = snap.docs.map(d=>({firestoreId:d.id,...d.data()})); setSync('ok'); renderAll(); if(activeTaskId) renderModal(); },
+  onSnapshot(
+    query(collection(db,'tasks'), orderBy('ts','desc')),
+    {includeMetadataChanges: true},
+    snap => {
+      // Skip if this is just our own local write echoing back before server confirms
+      if (snap.metadata.hasPendingWrites) return;
+
+      tasks = snap.docs.map(d=>({firestoreId:d.id,...d.data()}));
+      setSync('ok');
+
+      // Debounce: wait 300ms before rendering to batch rapid updates
+      clearTimeout(renderTimer);
+      renderTimer = setTimeout(() => {
+        renderAll();
+        if (activeTaskId) renderModal();
+      }, 300);
+    },
     err => { console.error(err); setSync('err'); }
   );
 }
