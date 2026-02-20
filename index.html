@@ -445,7 +445,7 @@ main{padding:20px 22px;overflow-y:auto;padding-bottom:calc(20px + var(--safe-bot
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD17L86ysLCw6yzFcqzEaYQ3wa7JNNHzJY",
@@ -489,20 +489,15 @@ function startListening() {
   setSync('busy');
   onSnapshot(
     query(collection(db,'tasks'), orderBy('ts','desc')),
-    {includeMetadataChanges: true},
     snap => {
-      // Skip if this is just our own local write echoing back before server confirms
-      if (snap.metadata.hasPendingWrites) return;
-
       tasks = snap.docs.map(d=>({firestoreId:d.id,...d.data()}));
       setSync('ok');
-
-      // Debounce: wait 300ms before rendering to batch rapid updates
+      // Debounce rapid updates into a single render
       clearTimeout(renderTimer);
       renderTimer = setTimeout(() => {
         renderAll();
         if (activeTaskId) renderModal();
-      }, 300);
+      }, 150);
     },
     err => { console.error(err); setSync('err'); }
   );
@@ -528,7 +523,7 @@ window.addTaskMobile = function() {
 async function pushTask(text,cat,priority,due,note) {
   try {
     setSync('busy');
-    await addDoc(collection(db,'tasks'),{text,cat,priority,due,note:note||'',status:'pending',done:false,author:me.name,av:me.avatar,comments:[],ts:serverTimestamp()});
+    await addDoc(collection(db,'tasks'),{text,cat,priority,due,note:note||'',status:'pending',done:false,author:me.name,av:me.avatar,comments:[],ts:Date.now()});
     toast('✅','Task added!');
   } catch(e){toast('❌','Failed to add');setSync('err');}
 }
@@ -807,7 +802,7 @@ async function processFile(file){
         let pri='med';if(pc>=0&&row[pc]){const r=String(row[pc]).toLowerCase();if(/high|urgent/.test(r))pri='high';else if(/low/.test(r))pri='low';}
         let due=null;if(dc>=0&&row[dc]){const r=row[dc];if(typeof r==='number'&&r>40000){const d=new Date(Math.round((r-25569)*86400*1000));due=d.toISOString().split('T')[0];}else{const d=new Date(r);if(!isNaN(d.getTime()))due=d.toISOString().split('T')[0];}}
         const note=(nc>=0&&row[nc])?String(row[nc]).trim():'';
-        await addDoc(collection(db,'tasks'),{text,cat,priority:pri,due,note,status:'pending',done:false,author:me.name,av:me.avatar,comments:[],ts:serverTimestamp()});
+        await addDoc(collection(db,'tasks'),{text,cat,priority:pri,due,note,status:'pending',done:false,author:me.name,av:me.avatar,comments:[],ts:Date.now()});
         added++;
       }
       toast('📊',`Imported ${added} task${added!==1?'s':''}`);fi.value='';
